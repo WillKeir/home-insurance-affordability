@@ -14,7 +14,7 @@ The link to the video presentation of this project is below:
 
 This repository includes:
 - Individual Report (PDF and R Markdown files)
-- Presenatation Slides
-- Data file
+- Group Presenatation Slides
+- Data file used in the report
 
 Feel free to explore the files and reach out if you have any questions.
