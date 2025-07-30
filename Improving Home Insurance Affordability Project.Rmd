@@ -1,0 +1,710 @@
+---
+title: "Improving Home Insurance Affordability"
+subtitle: "Adding Bushfire Risk to the ARPC Cyclone Reinsueance Pool"
+author: "William Keir"
+output: pdf_document
+geometry: 
+  - top=0.83in
+  - bottom=0.83in
+  - left=0.83in
+  - right=0.83in
+---
+
+# 1. Introduction and Background
+
+In recent years, Australia has been faced with a growing challenge to make home insurance affordable. The increasing risks of natural catastrophes, including cyclones, bushfires, floods and storms, has resulted a significant rise in the frequency and severity of insurance claims, influencing an upwards pressure on home insurance premiums, particularly in areas more prone to such catastrophes. Many households are beginning to struggle to afford home insurance, causing customers to drop out of their policies as they can't afford the coverage they need. This poses a significant risk to homeowners and insurers alike, as homeowners are missing out on having their risks covered, while insurers lose business, creating insolvency pressures on companies.
+
+To tackle this rising issue, our group, acting as an actuarial advisory group, proposes to add bushfire risk to the pre-existing Cyclone Reinsurance Pool (CRP) offered by the Australian Reinsurance Pool Corporation (ARPC). The aim of this proposal is to further diversify the risk pooled within the CRP, allowing for a reduction in the reinsurance premium rates charged to insurers, allowing them to pass savings down to the customer, ultimately reducing affordability pressures on home insurance. Insurers benefit from a more secure, government-backed reinsurance pool with cheaper premiums, reducing their insolvency pressures and enabling them to improve customer confidence. Homeowners benefit from a more secure insurer with reduced premiums, influencing them to hold onto their policies and the benefits that come with it.
+
+## About The ARPC CRP 
+
+The ARPC's CRP is a government-backed program designed to provide reinsurance coverage for insurers against losses incurred from claims relating to cyclones and other related natural disasters. It aims to ensure that homeowners in high-risk cyclone areas can access affordable insurance coverage. The CRP effectively pools risks across participating insurers, spreading the financial risk associated with cyclones and related disasters.
+
+Adding bushfire risk to the ARPC's CRP further diversifies the risks covered, reducing reinsurance premiums for insurers. Insurers are incentivised to provide coverage in high-risk locations, increasing access to protection against natural catastrophes. As a result, sustainability of the insurance market improves, benefiting both insurers and consumers in the long run.
+
+## Modelling Improvements to Home Insurance Affordability
+
+From an actuarial perspective, implementing this proposal will require robust modelling and risk assessment to ensure that home insurance affordability improves. Models that accurately map current pricing data will need to be constructed to assess the current affordability issues. After the strategy has been implemented, new data on average premium rates should reflect any improvement that resulted in the changed structure of the CRP. A new model can be fitted to this new data, with comparisons made to the old model. Improvements in home insurance affordability should be reflected in the differences between the old and new models. From there, we can determine whether the stategy worked, and whether more changes need to be made in order to make further improvements.
+
+\newpage
+
+# 2. Preliminary Data Analysis
+
+## 2. a. Data Cleaning
+
+```{r, echo = FALSE, include=FALSE}
+set.seed(47186275)
+library(tidyverse)
+data <- read.csv("Assignment_data.csv")
+```
+
+First thing to note is the `Average.cost.of.4.weeks.premium` column appears to be of character format. Also, the `Validation.Data` and `Test.Data` columns contain negative values. In this context, negative values don't make sense, as insurance premiums are always positive values. Further, 2 extremely small outliers exists in the `Average.cost.of.4.weeks.premium` column. Keeping these values in will only hurt the models' ability to capture the overall trend.
+
+To solve these issues, the `Average.cost.of.4.weeks.premium` column was changed to numeric format. Doing so replaces any character values with `NA`'s. Upon doing so, 3 `NA`'s were produced. For any row containing `NA`'s, the entire row was removed. Rows containing any negative values were also removed. For the two extremely small values were found in the `Average.cost.of.4.weeks.premium` column, both rows containing these values were removed. Removing entire rows in this manner helps maintain consistency and accuracy within the dataset, reducing the possible impact of biases, and helping our code execute seamlessly without having to make adjustments for missing values.
+
+```{r, echo = FALSE, warning=FALSE}
+# Change Average cost of 4 weeks premium to numeric
+data$Average.cost.of.4.weeks.premium <- as.numeric(data$Average.cost.of.4.weeks.premium)
+
+# remove NA's from Average cost of 4 weeks premium
+data = data[!is.na(data$Average.cost.of.4.weeks.premium), ]
+
+# Remove rows containing negative values
+data = data[data$Average.cost.of.4.weeks.premium > 0,]
+data = data[data$Validation.Data > 0,]
+data = data[data$Test.Data > 0,]
+
+# Remove rows containing Extremely small values (clear outliers, possible data error)
+data = data[data$Average.cost.of.4.weeks.premium > 100,]
+```
+
+## 2. b., c. Data Exploration and Explainations
+
+Reviewing the data after cleaning, and plotting:
+
+```{r, echo = FALSE, fig.height=2}
+# After Cleaning:
+# Explore information again
+colnames(data)[2] <- 'Average.premium'
+summary(data)
+colnames(data)[2] <- 'Average.cost.of.4.weeks.premium'
+
+ID <- data$Area.ID
+training <- data$Average.cost.of.4.weeks.premium
+validation <- data$Validation.Data
+testing <- data$Test.Data
+
+# Visualising again
+# Scatterplots
+par(mfrow = c(1, 3), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+plot(ID, training, main = 'Training Set', xlab = "Area ID", ylab = "Average Premium")
+plot(ID, validation, main = 'Validation Set', xlab = "Area ID", ylab = "Average Premium")
+plot(ID, testing, main = 'Testing Set', xlab = "Area ID", ylab = "Average Premium")
+```
+
+```{r, echo = FALSE, fig.height=2.2, fig.width = 4, fig.align = 'center'}
+# Boxplot
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+boxplot(training, validation, testing, 
+        names = c('Training', 'Validation', 'Testing'),
+        ylab = 'Average Premium', 
+        main = 'Box Plots of Average Premiums')  #name the y axis. Is it right?
+```
+
+```{r, echo = FALSE, fig.height=2}
+# Histograms
+par(mfrow = c(1, 3), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+hist(training, breaks = 50, 
+     main = 'Histogram of Training Set',
+     xlab = 'Average Premium')
+
+hist(validation, breaks = 50, 
+     main = 'Histogram of Validation Set',
+     xlab = 'Average Premium')
+
+hist(testing, breaks = 50, 
+     main = 'Histogram of Testing Set',
+     xlab = 'Average Premium')
+
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+```
+
+From the histograms, we see the distribution of the average premium data appears to be approximately normal, with a small amount of skewness making the data appear left-skewed.
+
+From the boxplots, the average premium data appears to be similarly distributed, with the same mean. The testing set appears to have slightly more variance than the validation, which also appears to have slightly more variance than the training set.
+
+From the scatterplots, we can see a distinct pattern in the training set, where it appears linear with a steep negative gradient for Area ID values less than 100, into a slight uptrend from 100 to 225, into a convex downtrend from 225 to 500, then for Area ID values greater than 500, the data seems to have extremely high variation, with no clear trend. The larger values for these ID's appear to be very sparse, to the point where they may be considered outliers, but since there are quite a few points here, we will not remove them.
+
+Such variation in the data suggests a relatively complex model will be needed to fit this data, in order to effectively capture the changing trends. Some examples of such models may include polynomial regression models of degree 4 or greater, or splines.
+
+Also seen in the scatterplots, the validation set appears to possess the same trend as the training set, with greater variation. The testing set has even more variation, although a rough trend can be made out from it.
+
+High variation and few datapoints beyond 500 implies the model will easily overfit to the data if it is too flexible. Large shifts in the trends within the data, such as around ID = 100 and ID = 225, suggests there may be some underlying factors of homes within these Area ID's that are impacting their home insurance premiums, for example, a strong shift in relative location, socio-economic and demographic factors, age and condition of the homes etc.
+
+The whole dataset appears to undergo changes in variance, with slightly lower variation in ID's below 100, with slightly higher variation between 100 and 500, and extremely high variation in points beyond 500. This suggests that the residuals of any model we fit will be heteroskedastic, which may impact the validity of the assumptions made for testing the model.
+
+In our modification of the ARPC's CRP, adding bushfire risk will indirectly aid home insurers in reducing premiums for their customers, particularly for those paying higher rates in high risk areas. This will be reflected in the data by an overall reduction in premiums, with the largest reductions occuring in areas with the highest premiums. The dataset will appear to have less variation, with smoother trends.
+
+## 2. d. Justification of Graduation
+
+Clearly from the above scatterplots, there are distinct shifts in the trends within the data. Due to noise in the data, it can be difficult to visualise exactly where these shifts in trend occur. Applying graduation techniques help to smooth out variations within the data, making shifts in trend clearer. This allows for a better understanding of the general structure of the data, making it more interpretable.
+
+Due to this, graduated data can be used to make more accurate predictions and forecasts, as it highlights the underlying trends without being skewed by random fluctuations. This forms a strong basis to help insurers in decision making, risk management, resource allocation and planning. This is essential in mapping changes to home insurance premiums, enabling insurers and other entities to address affordability issues for policyholders. 
+
+
+\newpage
+
+# 3. Parametric Curve Fitting
+
+## 3. a. Parametric Formula
+
+From the visualisation plots, it is clear to see the data follows what appears to be a 'W' shape, with three distinct critical points. From this, we could try fitting a polynomial model of degree 4 or higher to the data. Upon testing, it was found that a polynomial model of degree 5 fits the data better, determined by a combination of visual inspection and significance of coefficients, shown below. 
+
+```{r, echo = FALSE, fig.height=3.2}
+# Train linear model (degree 5)
+par.model <- lm(training ~ poly(ID, 5, raw = TRUE))
+
+# Overlay Model onto scatter plot
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+plot(ID, training, main = "Parametric Model", xlab = 'Area ID', ylab = 'Average Premium')
+lines(ID, fitted(par.model), col = 'red')
+
+```
+
+```{r, echo = FALSE}
+# Details on the model:
+par.summary <- summary(par.model)
+par.summary$coefficients
+```
+
+From the plot, we can see that the polynomial model fits well to the data, capturing the changing trend with distinct critical points. Further, we can see from the summary that all coefficients in the model are significant, indicating that all coefficients are relevant to explaining the variation in the data. The following formula was used to fit the model:
+$$
+\overset\circ{P} = - (3.83 \times 10^{-9}) x^5 + (6.25 \times 10^{-6}) x^4 - (3.71 \times 10^{-3}) x^3 + (9.71 \times 10^{-1}) x^2 - (1.09 \times 10^{2}) x  + (7.18 \times 10^{3})
+$$
+
+Where $\overset\circ{P}$ is the graduated average premium, and $x$ represents a particular Area ID.
+
+## 3. b. Natural Cubic Spline
+
+By visual inspection of the training dataset scatter plot, knots were chosen at `Area.ID = (80, 120, 200, 240, 300, 400, 500)`. A plot is shown below with the chosen knots in large red circles.
+
+```{r, echo = FALSE, fig.height=3.2}
+library(splines)
+
+# i. 
+# Knots Chosen By Visualisation:
+knots <- c(80, 120, 200, 240, 300, 400, 500)
+y_knotplot <- c(2934, 2678, 3372, 3096, 2546, 2195, 2148)
+
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+plot(ID, training, main = "Knots for Natural Cubic Spline", xlab = 'Area ID', ylab = 'Average Premium')
+points(knots, y_knotplot, col = 'red', pch = 19, cex = 2)
+```
+
+The knots have been placed where significant changes in the trend occur. Knots with this placement will help to form the base of a model that is flexible enough to capture the changes in trend but not so flexible that it is overfit to the data.
+
+```{r, echo = FALSE}
+# Set-up for tests
+MSE_3b <- c()
+knot_Comb <- matrix(nrow = 127, ncol = 7)
+
+row_index <- 1
+
+# Loop to find the best knots
+for (i in 1:length(knots)){
+  for (kComb in combn(knots, i, simplify = FALSE)){
+    # combn() produces a list of possible combinations of i knots
+    
+    # Fit model according to knot combination
+    nc.basis <- ns(ID, knots = kComb, Boundary.knots = range(ID))
+    ncs.model <- lm(training ~ nc.basis)
+    
+    # Test model against validation set (using Least Squares Error)
+    prediction <- predict(ncs.model, data.frame(ID)) # Is it ID or is it validation (i think it's ID)
+    mse <- mean((validation - prediction)^2)
+    
+    # Add result to a matrix
+    MSE_3b[row_index] = mse
+    for (j in 1:length(kComb)){
+      knot_Comb[row_index, j] = kComb[j]
+    }
+    row_index = row_index + 1
+  }
+}
+# Note: R code from 'Week 11 Tutorial R Code - Q8' on iLearn was used as guidance for this question.
+
+# Change variables to data frames
+MSE_3b <- as.data.frame(MSE_3b)
+knot_Comb <- as.data.frame(knot_Comb)
+
+# Combine variables and rename columns
+knot_performance <- mutate(MSE_3b, knot_Comb)
+colnames(knot_performance) <- c("MSE", "knot1", "knot2", "knot3", "knot4", "knot5", "knot6", "knot7")
+
+# Find knot combination that has smallest least squared error
+best_knots <- knot_performance[which.min(knot_performance$MSE), 2:8]
+best_knots <- as.vector(best_knots[!is.na(best_knots)])
+
+# Reconstruct model with best performing knots
+nc.basis <- ns(ID, knots = as.vector(best_knots[!is.na(best_knots)]))
+ncs.model <- lm(training ~ nc.basis)
+
+```
+
+To fit the natural cubic spline to the data with the chosen knots, a loop was perform, fitting $(2^7 - 1)$ natural cubic splines with every different possible combination of knots (excluding the combination containing no knots). Each model was comapared to the validation set, using mean squared error as the performance measurement. The model with the lowest mean squared error was chosen to be the optimal model. From the loop, it was found that the best performing model was the one with knots at (`r best_knots`). This model includes all of the original knots. The model was fitted against the training dataset, shown below.
+
+```{r, echo = FALSE, fig.height=3.2}
+# Visualising Model with best performing knots
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+plot(ID, training, main = "Natural Cubic Spline Model", xlab = 'Area ID', ylab = 'Average Premium')
+lines(ID, fitted(ncs.model), col = 'red')
+```
+
+## 3. c. Smoothing Spline
+
+```{r, echo = FALSE}
+tuning_param <- seq(0, 0.01, by = 0.00001)
+
+# Data frame to store values
+TP_performance <- data.frame()
+
+for (i in 1:length(tuning_param)){
+  # Fit the Smoothing Spline
+  SS_fit <- smooth.spline(ID, training, lambda = tuning_param[i])
+  
+  # Predict values based on model
+  y_pred <- predict(SS_fit, ID)$y
+  
+  # Compare prediction to validation set by MSE
+  mse <- mean((testing - y_pred)^2)
+  
+  # Store values
+  TP_performance[i, "tuning_param"] = tuning_param[i]
+  TP_performance[i, "MSE"] = as.numeric(mse)
+}
+
+# Best Tuning Parameter
+best_param <- TP_performance$tuning_param[which.min(TP_performance$MSE)]
+
+# Fit the model with the optimal lambda
+ss.model <- smooth.spline(ID, training, lambda = best_param)
+```
+
+A smoothing spline was fit to the training data, using a loop to find the optimal value for the trade-off parameter (lambda). Within the loop, different values of lambda, ranging from 0 to 0.01, were used to fit the model against the training set. A prediction set was made based off the model, and the fit of the model was assessed against the validation set using mean squared error. The values of each tested lambda and the respective mean squared error from each model was stored in a data frame. From this, the optimal lambda was chosen as the lambda that produced the model with the lowest mean squared error. The optimal lambda was found to be $\lambda =$ `r best_param`. Using this lambda to fit a new model against the training set yielded the following model:
+
+```{r, echo = FALSE, fig.height=3.2}
+# Plotting spline against training data
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+plot(ID, training, main = "Smoothing Spline Model", xlab = 'Area ID', ylab = 'Average Premium')
+lines(ID, fitted(ss.model), col = 'red')
+# Clearly overfit
+```
+
+From visual inspection, this spline is clearly overfit, as it jumps sporadically from one side of the trend to another, trying to capture every single data point. This may be a result of the validation model being too similar to the training data, especially in the case of the location of the clusters, as this will significantly impact the mean squared error calculation, resulting in an overfit model being chosen as the optimal model. After conducting further analysis, it was found that $\lambda = 0$ produced a global minimum mean squared error, suggesting it was the true optimal model. To account for the overfitting, we will have to use a different method to find a model.
+
+Now, we will fit a model using the validation set instead of the training set, obtaining the optimal lambda from this model by setting `cv = TRUE` within the `smooth.spline()` function. This technique uses cross-validation to determine the optimal lambda for the model. Using this value for lambda, we will then fit a new smoothing spline model to the training set. We will use this as our chosen smoothing spline model. The new model produces the following plot:
+
+```{r, echo = FALSE, fig.height=3.2}
+# Re-fit model with validation data, using cv = TRUE to find the optimal lambda
+ss.model.val <- smooth.spline(ID, validation, cv = TRUE)
+ss.model <- smooth.spline(ID, training, lambda = ss.model.val$lambda)
+
+# Plot again
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+plot(ID, training, main = "Smoothing Spline Model", xlab = 'Area ID', ylab = 'Average Premium')
+lines(ID, fitted(ss.model), col = 'red')
+# Better
+
+```
+
+Our new lambda value is `r ss.model.val$lambda`. Visually, this model is clearly not overfitting to the data, when compared to the model with $\lambda = 0$. We will use this as our optimal smoothing spline model.
+
+## 3. d. Comparison
+
+First, we will make a visual comparision of each model against the testing data:
+
+```{r, echo = FALSE, fig.height=3.2}
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+plot(ID, testing)
+lines(ID, fitted(par.model), col = 'blue', lwd = 1.5)
+lines(ID, fitted(ncs.model), col = 'green3', lwd = 1.5)
+lines(ID, fitted(ss.model), col = 'red', lwd = 1.5)
+legend("top",  
+       legend = c("Parametric Model", "Natural Cubic Spline", "Smoothing Spline"),
+       col = c("blue", "green", "red"),
+       lwd = 2  # Line width
+       )
+```
+
+All three models appear to be very similar to each other, with some slight deviations at particular points. This shows all models effectively capture the changing trends in the data. 
+
+It is often the case that the optimal smoothing spline is a cubic spline. Natural cubic splines also involve fitting cubic splines between points. This makes the two spline models extremely similar. Smoothing splines tend to be more flexible than natural cubic splines due to the adjustability of the smoothing parameter, where the natural cubic spline does not have such parameter. However, due to their complexity, smoothing splines are often more difficult to interpret than natural cubic splines.
+
+The fitted parametric model is of degree 5, which is higher than the cubics within the spline models, which are of degree 3. This model would produce a very similar result to fitting a single spline of degree 5 between two knots at the extreme ends of the data. Due to this, parametric models tend to be less flexible than natural cubic splines, which reduces chances of overfitting, but often comes at the cost of performance.
+
+All three models appear to accurately capture the changing trends in the data, without any absurd overfitting. We will now compare each model quantitatively, by computing the mean squared error of each model relative to the testing data.
+
+```{r, echo = FALSE}
+# Find fitted values
+par.fitted <- predict(par.model, as.data.frame(ID))
+ncs.fitted <- predict(ncs.model, as.data.frame(ID))
+ss.fitted <- predict(ss.model, as.data.frame(ID))$y
+
+# Find least squared error (relative to testing set)
+MSE_par.model = mean((testing - par.fitted)^2)
+MSE_ncs.model = mean((testing - ncs.fitted)^2)
+MSE_ss.model = mean((testing - ss.fitted$ID)^2)
+
+# Results of Comparison
+results <- data.frame(
+  Model = c('Parametric', 'Natural Cubic Spline', 'Smoothing Spline'),
+  MSE = c(MSE_par.model, MSE_ncs.model, MSE_ss.model)
+)
+
+results
+```
+
+The natural cubic spline is the model that produces the lowest mean squared error, making it the best model to use for this application. We will now conduct graduation tests to determine the goodness of fit of this model.
+
+\newpage
+
+# 4. Graduation Tests
+
+For all tests, a significance level of 0.05 (5%) has been chosen. All tests have Hypotheses:
+
+- $H_0$: The observed data follows the model
+- $H_1$: The observed data does not follow the model
+
+## 4. a. i. Chi Squared Test
+
+```{r, echo = FALSE}
+best.model <- ncs.model
+
+# i. Chi Squared Test
+observed <- training
+expected <- fitted(best.model)
+
+std.devs <- (observed-expected)/sd(observed - expected)
+
+chisq.teststat <- sum(std.devs^2)
+chisq.df <- length(training) - length(best_knots) - 1
+chisq.pval <- 1 - pchisq(chisq.teststat, chisq.df)
+
+# P-value less than 0.05 indicates we reject the null hypothesis
+# Therefore, the model is not a good fit by the Chi-Squared Test.
+```
+
+To perform the Chi Squared test on the graduation, we first find the expected values of the average premium, using our model's fitted values. The observed values are the training set. Since we do not know the underlying distribution of the residuals, we will standardise them based on the empirical standard deviation of the observed residuals, making the assumption that they follow a standard normal dsitribution from there:
+
+$$
+z_x = \frac{Observed - Expected}{\sqrt{Var(Observed - Expected)}} \sim N(0, 1)
+$$
+
+The Chi Squared test statistic is as follows:
+
+$$
+\tau = \sum_{i=1}^{n} z_i^2 \sim \chi_{n-r-1}^2
+$$
+
+In this case, since we chose the natural cubic spline as our best model, the degrees of freedom of the chi-squared test statistic is the number of observed values, minus the number of knots used in the model (in this case, 7), minus 1. Hence, the degrees of freedom in the chi squared test is `r chisq.df`.
+
+Computing the observed test statistic of `r chisq.teststat`, we attain a p-value of `r chisq.pval`. This value is greater than our chosen significance level of 0.05. Hence, we retain the null hypothesis, indicating that by the chi squared test, there is insufficient evidence to conclude the model is not a good fit to the data. We conclude that the model is a good fit.
+
+## 4. a. ii. Standardised Deviations Test
+
+```{r, echo = FALSE}
+# ii. Standardised Deviations Test
+options(scipen = 999)
+std.devs <- (observed-expected)/sd(observed - expected)
+
+# Sorting into buckets
+int.low <- c(-Inf, -3, -2, -1, 0, 1, 2, 3)
+int.high <- c(-3, -2, -1, 0, 1, 2, 3, Inf)
+int.freq <- c(0, 0, 0, 0, 0, 0, 0, 0)
+for (i in 1:length(std.devs)){
+  for (j in 1:length(int.high)){
+    if (std.devs[i] > int.low[j] && std.devs[i] < int.high[j]){
+      int.freq[j] = int.freq[j] + 1
+      break
+    }
+  }
+}
+
+int.expected <- length(std.devs)*(pnorm(int.high) - pnorm(int.low))
+
+int.counts <- data.frame(
+  int.low,
+  int.high,
+  int.freq,
+  int.expected
+)
+
+stddevs.teststat <- sum((int.freq - int.expected)^2/int.expected)
+stddevs.df <- length(int.low) - 1
+stddevs.pval <- 1 - pchisq(stddevs.teststat, stddevs.df)
+
+# P-value less than 0.05 indicates we reject the null hypothesis
+# Therefore, the model is not a good fit by the Standardised Deviations Test.
+```
+
+The standardised deviations test involves computing the standardised deviation, $z_x$, (shown above) for each ID value and assigning them into buckets based on their value. For this test, the following buckets were chosen:
+
+$$
+(-\infty, -3), \quad (-3, -2), \quad (-2, -1), \quad (-1, 0), \quad (0, 1), \quad (1, 2), \quad (2, 3), \quad (3, \infty)
+$$
+
+The results of the analysis described above is displayed in the following table:
+
+```{r, echo = FALSE}
+int.counts
+```
+
+`int.low` and `int.high` represent the lower and upper bounds of each bucket, respectively. `int.freq` is the observed number of $z_x$'s in each bucket. `int.expected` is the expected number of $z_x$'s in each bucket, based on the assumption that each $z_x$ follows a standard normal distribution.
+
+The test statistic for the hypothesis test follows a chi squared distribution with degrees of freedom equal to the number of buckets, minus 1. It is computed as:
+
+$$
+\tau = \sum_{i=1}^{n} \frac{(Observed_i - Expected_i)^2}{Expected_i} \sim \chi_{n-1}^2
+$$
+
+Note that we are assessing the observed and expected amounts in each bucket, rather than the data itself. After performing the test, the observed test statistic was found to be `r stddevs.teststat`, resulting in a p-value of `r stddevs.pval`. Since this falls below our chosen significance level, we reject the null hypothesis. By the standardised deviations test, there is sufficient evidence to suggest that the chosen model does not fit the data.
+
+## 4. a. iii. Signs Test
+
+```{r, echo = FALSE}
+# iii. Signs Test
+
+pos.count <- sum(std.devs > 0)
+m <- length(std.devs)
+
+kval <- c()
+# Loop to find smallest k value that makes CMF > 0.025
+for (k in 1:m){
+  prob <- pbinom(k, m, prob = 0.5)
+  if (prob > 0.025){
+    kval = k
+    break     # Ends loop when condition is satisfied
+  }
+}
+
+results_st <- data.frame(
+  Variable = c("k", "P", "m - k"),
+  Value = c(kval, pos.count, m - kval)
+)
+
+# Number of positive deviations lies between kval and m-kval
+# Therefore, we retain the null hypothesis
+# i.e., insufficient data to prove the model does not fit to the data
+# by the signs test
+
+# Alternatively
+# Asymptotically Normally distributed
+signtest.teststat <- (pos.count-0.5*m)/sqrt(0.25*m)
+signtest.pval <- 2*(1-pnorm(abs(signtest.teststat)))
+
+# P-value > 0.05. Therefore, we retain the null hypothesis
+# i.e., insufficient data to prove the model does not fit to the data
+
+```
+
+The signs test involves observing the number of points that are above and below the graduated line. If the graduation is a good fit, there should be a roughly equal amount of points above and below the line. Let P be the number of points above the line. If the model is a good fit, P should be distributed as:
+
+$$
+P \sim Binomial(m, 0.5)
+$$
+
+Where $m$ is the total number of observations. Since we are dealing with a large sample size, we can use the central limit theorem to assume a normal distribution of the number of positive values:
+
+$$
+P \sim N(0.5m, 0.25m)
+$$
+
+Conducting a two-sided statistical test based off this assumption yields a test statistic of `r signtest.teststat`, and a p-value of `r signtest.pval`. Since our observed p-value is far greater than the significance level of 0.05, we retain the null hypothesis, concluding that the model is a good fit by the signs test.
+
+## 4. a. iv. Cumulative Deviations Test
+
+```{r, echo = FALSE}
+# iv. Cumulative Deviations Test
+
+cumdev.teststat <- sum(observed - expected)/sqrt(sum(expected))
+cumdev.pval <- 2*(1-pnorm(abs(cumdev.teststat)))
+
+# P-value > 0.05. Therefore, we retain the null hypothesis
+# i.e., insufficient data to prove the model does not fit to the data
+# by the cumulative deviations test
+
+```
+
+The cumulative deviations test involves assessing the fit if a model relative to cumulative residuals. It aims to address the issue of detecting large deviations that the chi-squared test is unable to do. The test statistic is shown below:
+
+$$
+\tau = \frac{\sum_{i=1}^{n}(Observed_i - Expected_i)}{\sqrt{\sum_{i=1}^{n}(Expected_i)}} \sim N(0,1)
+$$
+
+Conducting this test on our model, we found test statistic of `r cumdev.teststat`, and a p-value of `r cumdev.pval`. The p-value is larger than the chosen significance level of 0.05. Thus, we retain the null hypothesis. There is insufficient evidence to suggest the model does not fit the data, according to the cumulative deviations test.
+
+## 4. a. v. Grouping of Signs Test
+
+```{r, echo = FALSE}
+# v. Grouping of Signs Test
+
+gCount <- 0
+
+# Write loop to count number of groups
+for (i in 1:length(std.devs)){
+  # determine if first std.dev is positive
+  if (i == 1){
+    if (std.devs[i] > 0){
+      gCount = gCount + 1
+    }
+  }
+  
+  # Find first positive std.dev in each group thereafter
+  else{
+    if (std.devs[i] > 0 && std.devs[i-1] < 0){
+      gCount = gCount + 1
+    }
+  }
+}
+
+# find smallest k
+m <- length(std.devs)
+n1 <- sum(std.devs > 0)
+n2 <- m - n1
+
+kval.GoS = 0
+pd = 0
+# Loop to find k for which sum of eqn is > 0.05
+for (g in 0:m){
+  pd = pd + (choose(n1 - 1, g - 1)*choose(n2 + 1, g))/choose(m, n1)
+  if (pd > 0.05){
+    kval.GoS = g
+    break
+  }
+}
+
+results_GoS <- data.frame(
+  Variable = c("k", "G"),
+  Value = c(kval.GoS, gCount)
+)
+
+# gCount > kval.GoS. Therefore, we retain the null hypothesis
+# i.e., insufficient data to prove the model does not fit to the data
+# by the Grouping of Signs Test
+
+```
+
+The grouping of signs test involves observing groups of positive deviations, in order to determine whether the data has been overgraduated. This test aims to combat the shortcomings of the signs test, as a model that is too smooth can still pass the signs test, even though it may not be a suitable model for the data. 
+
+Let $G$ be the number of groups of positive signs. If the graduation has been done properly, we will expect $G$ to be large. Let $m$ be the number of deviations, $n_1$ be the number of positive deviations and $n_2 = m - n_1$ be the number of negative deviations. Under the null hypothesis, we assume $G$ follow a hypergeometric distribution, with the following PMF:
+
+$$
+P(G = g) =  \frac{{{n_1-1} \choose {g-1}}{{n_2+1} \choose {g}}}{{m \choose n_1}}
+$$
+
+
+```{r, echo = FALSE}
+# Alternatively, Normal Approximation
+GoS.teststat <- (gCount - (n1*(n2+1))/(n1+n2))/sqrt((n1*n2)^2 /(n1+n2)^3)
+GoS.pval <- pnorm(GoS.teststat)
+```
+
+Since we dealing with a large data set, we can use the following normal approximation for $G$ to perform our test:
+
+$$
+G \sim N \left( \frac{n_1(n_2 + 1)}{n_1 + n_2}, \frac{(n_1 n_2)^2}{(n_1 + n_2)^3} \right)
+$$
+
+Conducting a one-sided statistical test (that rejects the null hypothesis if $G$ is too small) based off this approximation yielded a test statistic of `r GoS.teststat`, with a p-value of `r GoS.pval`. The observed p-value is greater than the chosen significance level of 0.05, so we retain the null hypothesis, confirming that our model has not been overgraduated by the grouping of signs test.
+
+## 4. a. vi. Serial Correlations Test
+
+```{r, echo = FALSE}
+# vi. Serial Correlations Test
+
+m <- length(std.devs)
+
+# Create sequences (first lagged sequence)
+z1 <- std.devs[1:(m-1)]
+z2 <- std.devs[2:m]
+
+r1 <- cor(z1, z2)
+
+sercor.teststat <- r1*sqrt(m)
+sercor.pval <- 1-pnorm(sercor.teststat)
+
+# jth lagged serial correlations:
+
+jLag <- 20
+
+zj1 <- std.devs[1:(m-jLag)]
+zj2 <- std.devs[(jLag+1):m]
+
+rj = cor(zj1, zj2)
+
+sercor.jLag.teststat <- rj*sqrt(m)
+sercor.jLag.pval <- 1-pnorm(sercor.jLag.teststat)
+
+# P-value greater than 0.05 indicates we retain the null hypothesis
+# Therefore, the model is a good fit by the Serial Correlations Test
+# i.e., the model is not over-graduated
+
+```
+
+If we have performed our graduation properly, the standardised deviations should all be independent of each other. If our model is over-graduated, we should observe some correlation between the deviations. The two sequences
+
+$$
+z_1, z_2, ..., z_{m-1} \quad \quad and \quad \quad z_2, z_3, ..., z_{m}
+$$
+
+Should be uncorrelated to each other. Let $r$ be the correlation between the two sequences. Under the null hypothesis, we find that
+
+$$
+r\sqrt{m} \sim N(0,1)
+$$
+
+The correlation between the two sequences was found to be $r$ = `r r1`, resulting in a p-value of `r sercor.pval`. The p-value is greater than the significance level of 0.05. Therefore, there is insufficient evidence to reject the null hypothesis. Thus, we retain the null hypothesis, and by the serial correlations test, the model is not over-graduated.
+
+## 4. a. vii. Graduation Test Summary
+
+A table summarising the results from our test are below:
+
+```{r, echo = FALSE}
+# vii. 
+results_GT <- data.frame(
+  Test = c("Chi-Squared Test", "Standardised Deviations Test", "Signs Test", 
+           "Cumulative Deviations Test", "Grouping of Signs Test", "Serial Correlations Test"),
+  p.Value = c(chisq.pval , stddevs.pval, signtest.pval, cumdev.pval, GoS.pval, sercor.pval),
+  Retain_H0 = c(chisq.pval > 0.05 , stddevs.pval > 0.05, signtest.pval > 0.05, cumdev.pval > 0.05, GoS.pval > 0.05, sercor.pval > 0.05)
+)
+results_GT
+```
+
+The grouping of signs and serial correlations tests both test for over-graduation. Our model passed both these tests, meaning it is clear that our model has not been over-graduated (i.e., not too smooth). 
+
+On the other hand, our model failed the standardised deviations test. We'll have to investigate this further. A QQ-plot of the standardised deviations is shown below:
+
+```{r, echo = FALSE, fig.height=3.5}
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1), mgp = c(1.5, 0.5, 0))
+qqnorm(std.devs)
+qqline(std.devs, col = 'red')
+```
+
+The QQ-plot appears to have significant deviations from the normal line, suggesting that the underlying standard normal distribution assumption of the standardised deviations may not be valid. A solution to this would be to conduct further analysis to determine the underlying distribution of the standardised deviations.
+
+The underlying assumptions tied to the standardised deviations rely on the variance to remain constant throughout the entire set. Clearly, from the scatterplots shown in the Preliminary Data Analysis section, the data appears to go through phases of varying variance, exhibiting a property known as heteroskedacticity. This property may the reason for the models' under-performance in the standardised deviations test. Finding a method of conducting this test without requiring the underlying assumption of constant variance of the standardised deviations may solve this issue.
+
+## 4. b. Model Shortcomings
+
+Natural cubic splines have some shortcomings. One of the biggest issues is that they require a subjective choice of knots. If sub-optimal knots are chosen, it may lead to an inaccurate, poor fit to the data. Too few knots can lead to the spline under-fitting, as it will be unable to capture the true nature of trends within the data. Too many knots can lead to the spline over-fitting, as it will try to capture random noise that does not represent the underlying trend.
+
+Further, natural cubic splines assume a linear relationship before the first knot and after the last knot. In some applications, this may not be appropriate, as there could be some non-linear trend within for these points that the spline will not capture. A solution to this would be to place knots at the extreme ends of the data. In the case of the average premiums dataset, there appears to be a distinct linear trend for Area ID's less than 80, so this should not be a problem for this set.
+
+The complexity of a natural cubic spline makes it more difficult to interpret than other, simpler models, especially with splines with a larger number of knots. Poor interpretability can lead to difficulties in communicating results, especially to those who don't have an actuarial or statistical background. In the context of home insurance affordability, using natural cubic splines to explain trends found in the data may make it difficult to communicate insights, as non-specialists may struggle to understand the implications of the model in mapping and predicting policy costs.
+
+\newpage
+
+# 5. Model Discussion
+
+## Implications of the Model
+
+The natural cubic spline model is able to capture the general trend of the data well.
+
+This model could be used to capture the effect of adding bushfire risk to the existing CRP, noting any differences from the original model (used on the data in this assignment) to a new model (using data gathered some time after imposing the new CRP approach). If the new model predicts significantly lower average premiums than the old model at every single Area ID, then we can say adding bushfire risk to the CRP had a significant effect in reducing premiums. We should also be looking for a reduction in the variation of premiums, since the new reinsurance pool will better diversify risk, allowing for premiums to be better smoothed out among all Area ID's. This should be reflected by fewer sharp changes in the direction/concavity in the data and in the new model.
+
+However, some time after the changes to the CRP have been made, if the new model has shown only a marginal decrease in premiums, little change in the variation, and little change to the shape of the data, it may suggest that adding bushfire risk to the existing CRP had little impact on reducing premiums, and may not be a sufficient solution to improving the home insurance affordability issue. We could conclude that the new apporach failed to do as it was intended, and a new solution to the home insurance affordability issue will need to be considered.
+
+
+## Potential Improvements to the Model
+
+The natural cubic spline has some potential for improvement.
+
+Finding better knot placements through the use of a mathematically rigorous method can help to choose knots that are able to reflect trends in the data better. An example of this is to select knots at all integer x-values, and one-by-one, remove knots that add little to no information until an optimal model is found. Another method could be to use a penalised regression technique such as LASSO optimisation, which removes knots by applying a penalty to the coefficients of the spline function, excluding less important knots from the model.
+
+Exploring other methods for evaluating performance (e.g., R-squared, AIC, BIC, weighted MSE, etc.) could be use to find a better model. Using only mean squared error to gauge performance of a model can be quite limiting, as it only considers the average squared residuals, which may not show the full picture of the data. It is possible that using mean squared error can reward models that are overfit to the data, resulting in a sub-optimal model being chosen as the optimal model. Mean squared error can fail to capture specific trends within the data, and depending on the context, may lead to inappropriate models being used for the application. Using a combination of methods for performance evaluation can aid in the creation of a more robust, well-fit model that is capable of capturing underlying trends with greater accuracy, allowing the model to better align with the specific needs of the application.
+
+For natural cubic spline graduation, as explained earlier, improvements can be made to the linearity assumption for points before the first knot and beyond the last knot. Adding knots at the extreme ends of the data will help in capturing non-linear trends outside of the range of knots used. This can then be used to accuately model trends within these areas of the data. 
+
+For parametric graduation, exploring functions outside that of just polynomials could be useful. Adding exponential, logarithmic, trigonometric, or other functions to the parametric graduation can enable the model to capture trends that our polynomial model was unable to capture. However, this can easily lead to the model being overfit to the data, making it perform poorly in testing, resulting in inaccuracy in modelling and predicting future data.
+
+For smoothing spline graduation, optimising for a non-zero trade-off parameter will enable the model to perform better. Imposing restrictions on the values that the trade-off parameter can take upon testing performance, as well as using a combination of other performance metrics to determine performance of the model may help in finding a better model that is not overfit to the data. 
