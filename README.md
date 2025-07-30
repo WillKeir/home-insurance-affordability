@@ -1,5 +1,5 @@
 # Improving Home Insurance Affordability
-Exploring home insurance affordability solutions by expanding the ARPC Cyclone Reinsurance Pool to cover bushfire risk.
+This repository contains my individual report and supporting materials from a group project exploring ways to improve home insurance affordability by expanding the ARPC Cyclone Reinsurance Pool to include bushfire risk.
 
 ---
 
@@ -13,7 +13,7 @@ The link to the video presentation of this project is below:
 ## Project Files
 
 This repository includes:
-- Report (PDF and R Markdown files)
+- Individual Report (PDF and R Markdown files)
 - Presenatation Slides
 - Data file
 
